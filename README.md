@@ -1,54 +1,38 @@
-# Operations Assistant — Local Streamlit App
+# Operations Assistant — Streamlit Cloud
+
+A review-first UK commercial energy-bill extraction and reporting app. Upload bills, inspect extracted fields, edit corrections, review consumption by register, calculate annualised usage, and export a PDF report.
+
+## Deploy to Streamlit Community Cloud
+1. Create a GitHub repository and upload the contents of this folder (including `.streamlit/config.toml` and `packages.txt`).
+2. Open https://share.streamlit.io/ and connect the repository.
+3. Set the main file path to `app.py` and deploy.
+4. Wait for the first build to install Python packages and Tesseract OCR from `packages.txt`.
 
 ## What it does
-- Runs on your Mac in a browser at `http://127.0.0.1:8501`.
-- Reads text from PDFs locally; attempts local OCR for scanned PDFs and image bills.
-- Helps organise supply identifiers, CED, unit/standing rates and consumption.
-- Lets you review/correct extracted fields and enter billing days and separate Day, Night and Evening & Weekend registers.
-- Calculates total, average per bill and annualised consumption using: `total kWh ÷ total billed days × 365`.
-- Creates a downloadable PDF summary.
+- Extracts PDF text with PyMuPDF and falls back to Tesseract OCR for scanned/image PDFs.
+- Uses deterministic, supplier-aware parsing and shows source text/evidence for review.
+- Keeps Day, Night, Evening & Weekend, other registers, and single-rate usage separate.
+- Calculates annualised usage as `total consumption ÷ total billed days × 365` and average monthly usage as annualised usage ÷ 12.
+- Produces a formatted PDF report with supply details, consumption, calculations and review flags.
+- Missing values are flagged rather than silently replaced with guessed values.
 
-## Privacy model
-This app does not call ChatGPT, OpenAI, or any external AI API. Bill processing, text extraction, calculations and PDF creation happen locally on your Mac. Streamlit is configured to disable usage-stat collection and bind to `127.0.0.1` only. Do not change the server address to `0.0.0.0` or expose the port if client confidentiality matters.
+## Important limitations
+- This is not a certified billing system and cannot guarantee 100% extraction accuracy. Supplier layouts differ and PDFs may have OCR/layout issues. Always verify critical values against the source invoice.
+- It does not call ChatGPT or an external AI API. Parsing is rules-based; unsupported layouts may require manual correction.
+- Streamlit Community Cloud processes uploaded files in the hosted app environment. A private GitHub repository does **not** make the deployed app private. Do not upload confidential client bills unless your organisation has explicitly approved cloud processing.
+- Uploaded files are handled in the running app session. Do not treat this as a compliant records-management system.
 
-**Important:** Local processing reduces the risk of sending client bills to a cloud service, but it does not by itself guarantee that your organisation's policy or legal obligations are satisfied. Check Reducer/client data-handling rules and your Mac's disk encryption, user account, backups and malware protection. Files are processed in memory by the app; avoid saving bills into shared folders. The app is not an audited or certified compliance product.
+## Local run
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+pip install -r requirements.txt
+streamlit run app.py
+```
+For OCR locally, install Tesseract OCR using your operating system's package manager.
 
-## Install (macOS)
-1. Install Python 3.11 or 3.12 from https://www.python.org/downloads/macos/ if `python3 --version` does not show a supported version.
-2. (Recommended for scanned/image bills) Install Homebrew from https://brew.sh if not already installed.
-3. Open Terminal and run:
-   ```bash
-   brew install tesseract
-   ```
-   If you only work with text-based PDFs, OCR is not always needed. The app will still work for text extraction without Tesseract; scanned documents need OCR.
-4. Download and unzip the project folder.
-5. In Finder, open the folder. Right-click `Run_Operations_Assistant.command` → Open. If macOS blocks it, open Terminal, `cd` into the folder, then run:
-   ```bash
-   chmod +x Run_Operations_Assistant.command
-   ./Run_Operations_Assistant.command
-   ```
-6. The first run creates `.venv` and installs packages. This requires internet access to download Python packages; client bill contents are not uploaded during installation.
-7. A local URL appears in Terminal. Open `http://127.0.0.1:8501` in your browser.
-8. Keep the Terminal window open while using the app. Press `Control + C` in Terminal to stop it.
-
-## How to use
-1. Upload the bills for one supply (preferably the latest 3 consecutive periods).
-2. Review extracted text in each bill tab. OCR may misread digits.
-3. Confirm the customer, supplier, fuel, address, MPAN/MPRN, meter serial, product and CED.
-4. Enter unit rate and standing charge. Standing charge should be entered in **p/day**; unit rates in **p/kWh**.
-5. Enter the number of billed days for each invoice. Add consumption to Day, Night and EW separately where present. For a single-rate meter, enter usage in `Total kWh (single-rate)`.
-6. Check the displayed totals and annualised estimate.
-7. Download the PDF and verify every figure before sharing.
-
-## Accuracy notes
-- This version uses local PDF text extraction and local OCR plus simple pattern-based suggestions, not a cloud AI model. It cannot reliably understand every supplier's invoice format.
-- Treat prefilled values as suggestions. Confirm all fields against the bill.
-- The consumption table intentionally requires review/input so it does not silently add incorrect values from unfamiliar invoice layouts.
-- For bills spanning irregular periods, use the exact billed days shown/calculated from dates. Do not assume every invoice is one month.
-- For multi-register electricity, enter register consumption separately and leave single-rate total as zero. For single-rate bills, enter the amount in `Total kWh (single-rate)`.
-
-## Files
-- `app.py` — Streamlit application
-- `requirements.txt` — Python dependencies
-- `Run_Operations_Assistant.command` — macOS launch/setup script
-- `.streamlit/config.toml` — local privacy-oriented Streamlit settings
+## Parser regression tests
+Run the included sanitised tests with:
+```bash
+python -m unittest discover -s tests -v
+```
