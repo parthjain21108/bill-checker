@@ -70,18 +70,17 @@ html, body, [class*="css"] {{ font-family:'DM Sans',sans-serif; color:var(--oa-t
 [data-testid="stExpander"] {{ border:1px solid {LINE};border-radius:12px;background:white; }}
 small, .stCaption {{ color:{MUTED}; }}
 footer {{ visibility:hidden; }}
-/* Make the hero heading white */
 /* Operations Assistant heading */
-.oa-hero h1 {
+.oa-hero h1 {{
     color: #FFFFFF !important;
-}
+}}
 
 /* Upload section heading and description */
 .stApp h2,
 .stApp [data-testid="stFileUploader"] label,
-.stApp [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"] {
+.stApp [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"] {{
     color: #FFFFFF !important;
-}
+}}
 </style>
 """, unsafe_allow_html=True)
 
