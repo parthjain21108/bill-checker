@@ -265,6 +265,16 @@ def parse_bill(text: str, filename: str, method: str, pages: int) -> dict[str,An
         if sm:
             digits=re.sub(r"\D","",sm.group(1))
             if len(digits)>=13: mpan=digits[-13:]; mpan_ev=re.sub(r"\s+"," ",sm.group(0)).strip()
+    # British Gas four-page template: MPAN is printed in the boxed "S" identifier.
+    # The lower row is the 13-digit MPAN core (e.g. 20 0000 5534 767); do not concatenate
+    # the upper profile/timeswitch/loss-factor row into it.
+    if not mpan and supplier == "British Gas":
+        mpan_box=re.search(r"(?:^|\n)\s*S\s*\n(?:[^\n]*\n){0,3}\s*((?:\d{2}\s+\d{4}\s+\d{4}\s+\d{3})|(?:\d[0-9 ]{10,20}\d))",text,re.I)
+        if mpan_box:
+            candidate=re.sub(r"\D","",mpan_box.group(1))
+            if len(candidate)==13:
+                mpan=candidate
+                mpan_ev=re.sub(r"\s+"," ",mpan_box.group(0)).strip()
     mprn,mprn_ev=_first([r"(?:MPRN|Meter Point Reference Number|Meter point reference)\s*[:#]?\s*([0-9]{6,12})"],text)
     mprn=re.sub(r"\D","",mprn)
     meters=[]

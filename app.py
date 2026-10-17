@@ -53,6 +53,18 @@ html, body, [class*="css"] {{ font-family:'DM Sans',sans-serif; color:var(--oa-t
 [data-testid="stMetricValue"] {{ font-family:Manrope,sans-serif;color:{NAVY};font-weight:800; }}
 [data-testid="stFileUploader"] {{ background:white;border:1.5px dashed #B9C7DA;border-radius:16px;padding:8px; }}
 [data-testid="stTabs"] button {{ font-weight:700; }}
+/* Strong, consistent contrast: the previous global/sidebar styles made form labels nearly invisible. */
+.stApp, .stApp p, .stApp span, .stApp label, .stApp [data-testid="stWidgetLabel"], .stApp [data-testid="stMarkdownContainer"] {{ color:{TEXT}; }}
+.stApp [data-testid="stWidgetLabel"] p, .stApp [data-testid="stWidgetLabel"] label {{ color:{NAVY} !important; font-weight:700 !important; }}
+.stApp input, .stApp textarea, .stApp [data-baseweb="select"] > div {{ background:#FFFFFF !important; color:{TEXT} !important; border-color:#CBD5E1 !important; }}
+.stApp input::placeholder, .stApp textarea::placeholder {{ color:#94A3B8 !important; }}
+.stApp [data-testid="stCaptionContainer"], .stApp [data-testid="stCaptionContainer"] p {{ color:{MUTED} !important; }}
+.stApp [data-testid="stTabs"] button {{ color:{NAVY} !important; }}
+.stApp [data-testid="stTabs"] button[aria-selected="true"] {{ color:{BLUE} !important; border-bottom-color:{BLUE} !important; }}
+.stApp [data-testid="stDataFrame"], .stApp [data-testid="stDataEditor"] {{ background:white; border-radius:12px; }}
+.oa-hero {{ box-shadow:0 12px 28px #14243A12; }}
+.oa-section {{ margin-top:20px; }}
+
 [data-testid="stExpander"] {{ border:1px solid {LINE};border-radius:12px;background:white; }}
 small, .stCaption {{ color:{MUTED}; }}
 footer {{ visibility:hidden; }}
@@ -83,67 +95,107 @@ def current_review_flags(record, details, usage=None, days=None):
     return flags
 
 def make_report(records, consumption_df, detail_values, generated_at):
-    buff=io.BytesIO(); doc=SimpleDocTemplate(buff,pagesize=landscape(A4),rightMargin=12*mm,leftMargin=12*mm,topMargin=12*mm,bottomMargin=13*mm)
+    """Clean, readable portrait report with explicit calculation steps and highlighted results."""
+    buff=io.BytesIO()
+    doc=SimpleDocTemplate(buff,pagesize=A4,rightMargin=16*mm,leftMargin=16*mm,topMargin=15*mm,bottomMargin=16*mm)
     ss=getSampleStyleSheet()
-    ss.add(ParagraphStyle(name="OAeyebrow",parent=ss["Normal"],fontName="Helvetica-Bold",fontSize=7.5,leading=9,textColor=colors.HexColor(BLUE),spaceAfter=5))
-    ss.add(ParagraphStyle(name="OATitle",parent=ss["Title"],fontName="Helvetica-Bold",fontSize=22,leading=25,textColor=colors.HexColor(NAVY),alignment=TA_LEFT,spaceAfter=4))
-    ss.add(ParagraphStyle(name="OASub",parent=ss["Normal"],fontName="Helvetica",fontSize=8.5,leading=11,textColor=colors.HexColor(MUTED),spaceAfter=8))
-    ss.add(ParagraphStyle(name="OAHead",parent=ss["Heading2"],fontName="Helvetica-Bold",fontSize=11,leading=14,textColor=colors.HexColor(NAVY),spaceBefore=10,spaceAfter=5))
-    ss.add(ParagraphStyle(name="OABody",parent=ss["BodyText"],fontName="Helvetica",fontSize=7.5,leading=9.5,textColor=colors.HexColor(TEXT)))
-    ss.add(ParagraphStyle(name="OATiny",parent=ss["BodyText"],fontName="Helvetica",fontSize=6.5,leading=8,textColor=colors.HexColor(MUTED)))
-    ss.add(ParagraphStyle(name="OAHeaderCell",parent=ss["BodyText"],fontName="Helvetica-Bold",fontSize=7,leading=8.5,textColor=colors.white))
-    ss.add(ParagraphStyle(name="OAMetric",parent=ss["BodyText"],fontName="Helvetica-Bold",fontSize=14,leading=16,textColor=colors.HexColor(BLUE),alignment=TA_CENTER))
-    ss.add(ParagraphStyle(name="OAMetricLabel",parent=ss["BodyText"],fontName="Helvetica-Bold",fontSize=6.5,leading=8,textColor=colors.HexColor(NAVY),alignment=TA_CENTER))
-    P=lambda v,st="OABody":Paragraph(str(v),ss[st])
-    story=[P("OPERATIONS ASSISTANT  /  COMMERCIAL ENERGY-BILL REVIEW","OAeyebrow"),P("Energy Bill Analysis","OATitle"),P(f"Extracted from uploaded documents · Generated {generated_at} · Verify flagged fields against the source bills before use.","OASub")]
-    story += [P("Supply details","OAHead")]
-    detail_rows=[[P("<b>Bill / source</b>","OAHeaderCell"),P("<b>Customer / supplier</b>","OAHeaderCell"),P("<b>Fuel / supply address</b>","OAHeaderCell"),P("<b>Identifiers</b>","OAHeaderCell"),P("<b>Product / contract end</b>","OAHeaderCell"),P("<b>Rates & charges</b>","OAHeaderCell")]]
-    for r in records:
-        d=detail_values[r['id']]
-        ident=f"Account: {esc(d.get('Account number',''))}<br/>MPAN: {esc(d.get('MPAN',''))}<br/>MPRN: {esc(d.get('MPRN',''))}<br/>Meter: {esc(d.get('Meter serial number',''))}"
-        rates=esc(d.get('Unit rates (p/kWh)',''))+f"<br/>Standing: {esc(d.get('Standing charge (p/day)',''))} p/day<br/>CCL: {esc(d.get('CCL rate (p/kWh)',''))} p/kWh"
-        detail_rows.append([P(esc(r['filename'])),P(f"{esc(d.get('Customer',''))}<br/>{esc(d.get('Supplier',''))}"),P(f"{esc(d.get('Fuel',''))}<br/>{esc(d.get('Supply address',''))}"),P(ident),P(f"{esc(d.get('Product / tariff',''))}<br/>CED: {esc(d.get('Contract end date (CED)',''))}<br/>Price guaranteed until: {esc(d.get('Price guaranteed until',''))}"),P(rates)])
-    t=Table(detail_rows,colWidths=[37*mm,43*mm,48*mm,45*mm,39*mm,47*mm],repeatRows=1)
-    t.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor(NAVY)),("TEXTCOLOR",(0,0),(-1,0),colors.white),("GRID",(0,0),(-1,-1),.4,colors.HexColor(LINE)),("BACKGROUND",(0,1),(-1,-1),colors.white),("VALIGN",(0,0),(-1,-1),"TOP"),("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),5),("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5)]))
-    story.append(t); story.append(P("Consumption by bill","OAHead"))
-    rows=[[P("<b>Bill / period</b>","OAHeaderCell"),P("<b>Days</b>","OAHeaderCell"),P("<b>Day kWh</b>","OAHeaderCell"),P("<b>Night kWh</b>","OAHeaderCell"),P("<b>EW kWh</b>","OAHeaderCell"),P("<b>Other register</b>","OAHeaderCell"),P("<b>Single-rate kWh</b>","OAHeaderCell"),P("<b>Total kWh</b>","OAHeaderCell")]]
-    for _,r in consumption_df.iterrows():
-        total=sum(float(r.get(c,0) or 0) for c in ["Day kWh","Night kWh","EW kWh","Other register kWh","Single-rate kWh"])
-        def regfmt(v):
-            try: return "—" if abs(float(v or 0)) < 0.000001 else fmt_num(v)
-            except (TypeError,ValueError): return "—"
-        rows.append([P(f"{esc(r.get('Bill',''))}<br/>{esc(r.get('Billing period',''))}"),P(str(int(r.get("Days",0) or 0))),P(regfmt(r.get("Day kWh",0))),P(regfmt(r.get("Night kWh",0))),P(regfmt(r.get("EW kWh",0))),P(regfmt(r.get("Other register kWh",0))),P(regfmt(r.get("Single-rate kWh",0))),P(fmt_num(total))])
-    ct=Table(rows,colWidths=[51*mm,14*mm,23*mm,24*mm,22*mm,28*mm,30*mm,25*mm],repeatRows=1)
-    ct.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor(BLUE)),("TEXTCOLOR",(0,0),(-1,0),colors.white),("GRID",(0,0),(-1,-1),.4,colors.HexColor(LINE)),("BACKGROUND",(0,1),(-1,-1),colors.white),("VALIGN",(0,0),(-1,-1),"TOP"),("ALIGN",(1,1),(-1,-1),"RIGHT"),("LEFTPADDING",(0,0),(-1,-1),4),("RIGHTPADDING",(0,0),(-1,-1),4),("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5)]))
-    story.append(ct)
-    # Group-level calculations are based on the editable consumption table.
-    totals=defaultdict(lambda:{"usage":0.0,"days":0,"bills":0})
-    for _,r in consumption_df.iterrows():
-        bid=r.get("_id"); rec=next((x for x in records if x['id']==bid),None)
+    ss.add(ParagraphStyle(name="OAeyebrow2",parent=ss["Normal"],fontName="Helvetica-Bold",fontSize=8,leading=10,textColor=colors.HexColor(BLUE),spaceAfter=7))
+    ss.add(ParagraphStyle(name="OATitle2",parent=ss["Title"],fontName="Helvetica-Bold",fontSize=25,leading=29,textColor=colors.HexColor(NAVY),alignment=TA_LEFT,spaceAfter=5))
+    ss.add(ParagraphStyle(name="OASub2",parent=ss["Normal"],fontName="Helvetica",fontSize=9,leading=13,textColor=colors.HexColor(MUTED),spaceAfter=12))
+    ss.add(ParagraphStyle(name="OAHead2",parent=ss["Heading2"],fontName="Helvetica-Bold",fontSize=13,leading=16,textColor=colors.HexColor(NAVY),spaceBefore=15,spaceAfter=7))
+    ss.add(ParagraphStyle(name="OABody2",parent=ss["BodyText"],fontName="Helvetica",fontSize=8.5,leading=12,textColor=colors.HexColor(TEXT)))
+    ss.add(ParagraphStyle(name="OATiny2",parent=ss["BodyText"],fontName="Helvetica",fontSize=7,leading=9,textColor=colors.HexColor(MUTED)))
+    ss.add(ParagraphStyle(name="OAHeadCell2",parent=ss["BodyText"],fontName="Helvetica-Bold",fontSize=8,leading=10,textColor=colors.white))
+    ss.add(ParagraphStyle(name="OAMetric2",parent=ss["BodyText"],fontName="Helvetica-Bold",fontSize=18,leading=21,textColor=colors.HexColor(NAVY),alignment=TA_LEFT))
+    ss.add(ParagraphStyle(name="OAMetricLabel2",parent=ss["BodyText"],fontName="Helvetica-Bold",fontSize=7.5,leading=9,textColor=colors.HexColor(MUTED),alignment=TA_LEFT))
+    ss.add(ParagraphStyle(name="OAStep2",parent=ss["BodyText"],fontName="Helvetica",fontSize=9,leading=13,textColor=colors.HexColor(TEXT)))
+    P=lambda v,sty="OABody2":Paragraph(str(v),ss[sty])
+    story=[P("OPERATIONS ASSISTANT  /  COMMERCIAL ENERGY BILL REVIEW","OAeyebrow2"),
+           P("Energy Bill Analysis","OATitle2"),
+           P(f"Generated {esc(generated_at)} · Source-backed extraction · Review flagged fields against the original invoice.","OASub2")]
+    # High-level summary cards
+    totals=defaultdict(lambda:{"usage":0.0,"days":0,"bills":0,"rows":[],"unknown":False})
+    for _,row in consumption_df.iterrows():
+        rec=next((x for x in records if x["id"]==row.get("_id")),None)
         if not rec: continue
-        d=detail_values[rec['id']]
-        key=d.get("MPAN") or d.get("MPRN") or d.get("Account number") or rec['filename']
-        total=sum(float(r.get(c,0) or 0) for c in ["Day kWh","Night kWh","EW kWh","Other register kWh","Single-rate kWh"])
-        totals[key]["usage"]+=total; totals[key]["days"]+=int(r.get("Days",0) or 0); totals[key]["bills"]+=1
-    story.append(P("Calculated summary","OAHead"))
-    sr=[[P("<b>Supply reference</b>","OAHeaderCell"),P("<b>Bills</b>","OAHeaderCell"),P("<b>Total usage</b>","OAHeaderCell"),P("<b>Total billed days</b>","OAHeaderCell"),P("<b>Average monthly</b>","OAHeaderCell"),P("<b>Annualised estimate</b>","OAHeaderCell"),P("<b>Method</b>","OAHeaderCell")]]
+        d=detail_values[rec["id"]]
+        key=(d.get("MPAN","").strip() or d.get("MPRN","").strip() or d.get("Account number","").strip() or rec["filename"])
+        vals=[row.get(c) for c in ["Day kWh","Night kWh","EW kWh","Other register kWh","Single-rate kWh"]]
+        nums=[float(v) for v in vals if v is not None and not pd.isna(v)]
+        total=sum(max(0,v) for v in nums)
+        totals[key]["usage"]+=total; totals[key]["days"]+=int(row.get("Days",0) or 0); totals[key]["bills"]+=1
+        totals[key]["rows"].append((rec,row,total))
+        if not nums: totals[key]["unknown"]=True
+    total_usage=sum(v["usage"] for v in totals.values())
+    total_days=sum(v["days"] for v in totals.values())
+    annual,monthly=calculate_usage(total_usage,total_days)
+    metrics=[
+        [P("TOTAL CONSUMPTION","OAMetricLabel2"),P(f"{total_usage:,.2f} kWh","OAMetric2")],
+        [P("BILLED DAYS","OAMetricLabel2"),P(f"{total_days:,}","OAMetric2")],
+        [P("AVERAGE MONTHLY","OAMetricLabel2"),P(f"{monthly:,.2f} kWh" if monthly is not None else "—","OAMetric2")],
+        [P("ANNUALISED ESTIMATE","OAMetricLabel2"),P(f"{annual:,.2f} kWh/year" if annual is not None else "—","OAMetric2")],
+    ]
+    mt=Table([metrics],colWidths=[44*mm]*4)
+    mt.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),colors.HexColor("#F2F5FB")),("BOX",(0,0),(-1,-1),.6,colors.HexColor(LINE)),("INNERGRID",(0,0),(-1,-1),.5,colors.HexColor(LINE)),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),9),("RIGHTPADDING",(0,0),(-1,-1),6),("TOPPADDING",(0,0),(-1,-1),10),("BOTTOMPADDING",(0,0),(-1,-1),10)]))
+    story.append(mt)
+    story.append(P("Supply details","OAHead2"))
+    detail_rows=[[P("FIELD","OAHeadCell2"),P("EXTRACTED VALUE","OAHeadCell2")]]
+    for r in records:
+        d=detail_values[r["id"]]
+        detail_rows += [
+            [P("Source bill"),P(esc(r["filename"]))],
+            [P("Customer / supplier"),P(f"<b>{esc(d.get('Customer',''))}</b><br/>{esc(d.get('Supplier',''))}")],
+            [P("Fuel / supply address"),P(f"{esc(d.get('Fuel',''))}<br/>{esc(d.get('Supply address',''))}")],
+            [P("Account / MPAN / MPRN / meter"),P(f"Account: {esc(d.get('Account number',''))}<br/>MPAN: {esc(d.get('MPAN',''))}<br/>MPRN: {esc(d.get('MPRN',''))}<br/>Meter: {esc(d.get('Meter serial number',''))}")],
+            [P("Product / contract end"),P(f"{esc(d.get('Product / tariff',''))}<br/>CED: {esc(d.get('Contract end date (CED)',''))}")],
+            [P("Rates and charges"),P(f"Unit rate: {esc(d.get('Unit rates (p/kWh)',''))} p/kWh<br/>Standing charge: {esc(d.get('Standing charge (p/day)',''))} p/day<br/>CCL: {esc(d.get('CCL rate (p/kWh)',''))} p/kWh")],
+        ]
+    dt=Table(detail_rows,colWidths=[54*mm,122*mm],repeatRows=1,hAlign="LEFT")
+    dt.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor(NAVY)),("BACKGROUND",(0,1),(0,-1),colors.HexColor("#F2F5FB")),("GRID",(0,0),(-1,-1),.45,colors.HexColor(LINE)),("VALIGN",(0,0),(-1,-1),"TOP"),("LEFTPADDING",(0,0),(-1,-1),8),("RIGHTPADDING",(0,0),(-1,-1),8),("TOPPADDING",(0,0),(-1,-1),6),("BOTTOMPADDING",(0,0),(-1,-1),6)]))
+    story.append(dt)
+    story.append(P("Consumption by bill","OAHead2"))
+    cr=[[P("BILL / PERIOD","OAHeadCell2"),P("DAYS","OAHeadCell2"),P("DAY","OAHeadCell2"),P("NIGHT","OAHeadCell2"),P("E&W","OAHeadCell2"),P("OTHER","OAHeadCell2"),P("SINGLE RATE","OAHeadCell2"),P("TOTAL","OAHeadCell2")]]
+    for _,row in consumption_df.iterrows():
+        def valfmt(v):
+            try: return "—" if v is None or pd.isna(v) or abs(float(v))<1e-8 else f"{float(v):,.2f}"
+            except (ValueError,TypeError): return "—"
+        total=sum(float(row.get(c) or 0) for c in ["Day kWh","Night kWh","EW kWh","Other register kWh","Single-rate kWh"] if row.get(c) is not None and not pd.isna(row.get(c)))
+        cr.append([P(f"{esc(row.get('Bill',''))}<br/><font color='#66758A'>{esc(row.get('Billing period',''))}</font>"),P(str(int(row.get("Days",0) or 0))),P(valfmt(row.get("Day kWh"))),P(valfmt(row.get("Night kWh"))),P(valfmt(row.get("EW kWh"))),P(valfmt(row.get("Other register kWh"))),P(valfmt(row.get("Single-rate kWh"))),P(f"<b>{total:,.2f}</b>")])
+    ct=Table(cr,colWidths=[47*mm,13*mm,17*mm,17*mm,15*mm,17*mm,22*mm,19*mm],repeatRows=1,hAlign="LEFT")
+    ct.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor(BLUE)),("GRID",(0,0),(-1,-1),.45,colors.HexColor(LINE)),("BACKGROUND",(0,1),(-1,-1),colors.white),("VALIGN",(0,0),(-1,-1),"TOP"),("ALIGN",(1,1),(-1,-1),"RIGHT"),("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),5),("TOPPADDING",(0,0),(-1,-1),7),("BOTTOMPADDING",(0,0),(-1,-1),7)]))
+    story.append(ct)
+    story.append(P("Calculation — step by step","OAHead2"))
+    story.append(P("Formula: Annualised consumption = Total consumption ÷ Total billed days × 365","OAStep2"))
     for key,v in totals.items():
-        annual,monthly=calculate_usage(v['usage'],v['days'])
-        sr.append([P(esc(key)),P(str(v['bills'])),P(f"{v['usage']:,.2f} kWh"),P(str(v['days'])),P(f"{monthly:,.2f} kWh" if monthly is not None else "Not calculated"),P(f"{annual:,.2f} kWh/year" if annual is not None else "Not calculated"),P("Total consumption ÷ total billed days × 365")])
-    stbl=Table(sr,colWidths=[48*mm,15*mm,30*mm,28*mm,32*mm,34*mm,40*mm],repeatRows=1)
-    stbl.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor(NAVY)),("TEXTCOLOR",(0,0),(-1,0),colors.white),("GRID",(0,0),(-1,-1),.4,colors.HexColor(LINE)),("VALIGN",(0,0),(-1,-1),"TOP"),("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),5),("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5)]))
-    story.append(stbl)
-    story += [Spacer(1,5*mm),P("Review notes","OAHead")]
+        usage=v["usage"]; days=v["days"]
+        ann,mon=calculate_usage(usage,days)
+        # Each supply gets its own transparent arithmetic and highlighted final values.
+        step_rows=[
+            [P("1  Total consumption"),P(f"{usage:,.2f} kWh")],
+            [P("2  Total billed days"),P(f"{days:,} days")],
+            [P("3  Daily average"),P(f"{usage:,.2f} ÷ {days:,} = {usage/days:,.4f} kWh/day" if days else "Cannot calculate — billed days missing")],
+            [P("4  Annualise"),P(f"{usage:,.2f} ÷ {days:,} × 365 = {ann:,.2f} kWh/year" if ann is not None else "Cannot calculate — usage or billed days missing")],
+            [P("5  Average monthly"),P(f"{ann:,.2f} ÷ 12 = {mon:,.2f} kWh/month" if ann is not None else "Not calculated")],
+        ]
+        st=Table(step_rows,colWidths=[54*mm,122*mm],hAlign="LEFT")
+        st.setStyle(TableStyle([("BACKGROUND",(0,0),(0,-1),colors.HexColor("#F2F5FB")),("BACKGROUND",(1,3),(1,4),colors.HexColor("#EAF7F2")),("TEXTCOLOR",(1,3),(1,4),colors.HexColor("#126B55")),("BOX",(0,0),(-1,-1),.6,colors.HexColor(LINE)),("INNERGRID",(0,0),(-1,-1),.4,colors.HexColor(LINE)),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),8),("RIGHTPADDING",(0,0),(-1,-1),8),("TOPPADDING",(0,0),(-1,-1),7),("BOTTOMPADDING",(0,0),(-1,-1),7)]))
+        story.append(P(f"Supply: {esc(key)}","OABody2")); story.append(st)
+        story.append(Spacer(1,3*mm))
+    story.append(P("Review notes","OAHead2"))
     for r in records:
         row=consumption_df[consumption_df["_id"]==r["id"]]
         row_usage=sum(float(row.iloc[0].get(c) or 0) for c in ["Day kWh","Night kWh","EW kWh","Other register kWh","Single-rate kWh"] if row.iloc[0].get(c) is not None and not pd.isna(row.iloc[0].get(c))) if not row.empty else r.get("usage")
         row_days=int(row.iloc[0].get("Days",0) or 0) if not row.empty else r.get("days",0)
-        flags=current_review_flags(r,detail_values[r['id']],row_usage,row_days)
-        if flags: story.append(P(f"<b>{esc(r['filename'])}:</b> {esc('; '.join(flags))}","OABody"))
-        else: story.append(P(f"<b>{esc(r['filename'])}:</b> The parser found the core fields; source verification is still required.","OABody"))
-    story += [Spacer(1,4*mm),P("Extraction is deterministic and evidence-first, not a guarantee of correctness. Empty fields mean the value was not reliably identified; they must not be treated as zero or inferred from another bill. Rates, billing days and register totals should be checked against the original invoice.","OATiny")]
+        flags=current_review_flags(r,detail_values[r["id"]],row_usage,row_days)
+        story.append(P(f"<b>{esc(r['filename'])}</b> — {esc('; '.join(flags) if flags else 'Core fields extracted; verify against the source invoice.')}","OABody2"))
+    story += [Spacer(1,4*mm),P("Empty fields mean the value was not reliably identified. Do not treat missing values as zero. Confirm identifiers, rates, billed days and consumption against the original invoice before operational use.","OATiny2")]
     def footer(canvas,doc_):
-        canvas.saveState(); w,h=landscape(A4); canvas.setStrokeColor(colors.HexColor(LINE)); canvas.line(12*mm,9*mm,w-12*mm,9*mm); canvas.setFont("Helvetica",6.5); canvas.setFillColor(colors.HexColor(MUTED)); canvas.drawString(12*mm,5*mm,"OPERATIONS ASSISTANT · ENERGY BILL REVIEW"); canvas.drawRightString(w-12*mm,5*mm,f"Page {doc_.page}"); canvas.restoreState()
+        canvas.saveState(); w,h=A4
+        canvas.setStrokeColor(colors.HexColor(LINE)); canvas.line(16*mm,11*mm,w-16*mm,11*mm)
+        canvas.setFont("Helvetica",7); canvas.setFillColor(colors.HexColor(MUTED))
+        canvas.drawString(16*mm,6*mm,"OPERATIONS ASSISTANT  ·  ENERGY BILL REVIEW")
+        canvas.drawRightString(w-16*mm,6*mm,f"PAGE {doc_.page}")
+        canvas.restoreState()
     doc.build(story,onFirstPage=footer,onLaterPages=footer)
     return buff.getvalue()
 
@@ -297,7 +349,7 @@ st.markdown('<div class="oa-section">05 · Calculated summary</div><div class="o
 if len(groups)>1:
     st.markdown('<div class="oa-note"><b>Multiple supply references detected.</b> Annualised figures are shown per supply to avoid combining unrelated sites/meters into one number.</div>',unsafe_allow_html=True)
 for i,(supply,items) in enumerate(groups.items()):
-    total=sum(x['_total'] for x in items); days=sum(int(x.get('Days',0) or 0) for x in items)
+    total=sum((x['_total'] or 0) for x in items); days=sum(int(x.get('Days',0) or 0) for x in items)
     annual,monthly=calculate_usage(total,days)
     label=supply if len(supply)<48 else supply[:45]+"…"
     st.markdown(f'<div style="font-family:Manrope,sans-serif;font-size:14px;font-weight:800;color:{NAVY};margin:12px 0 8px">Supply {i+1} · {html.escape(label)}</div>',unsafe_allow_html=True)
@@ -306,7 +358,24 @@ for i,(supply,items) in enumerate(groups.items()):
     b.metric("Total billed days",f"{days:,}")
     c.metric("Average monthly",f"{monthly:,.2f} kWh" if monthly is not None else "Not calculated")
     d.metric("Annualised usage",f"{annual:,.0f} kWh/year" if annual is not None else "Not calculated")
-    st.caption(f"Calculation: {total:,.2f} kWh ÷ {days} days × 365 = {annual:,.2f} kWh/year." if annual is not None else "Annualisation not calculated because billed days were not reliably extracted or entered.")
+    if annual is not None:
+        with st.expander("View step-by-step calculation", expanded=True):
+            st.markdown(f"""
+            <div class="oa-card" style="padding:18px">
+              <div style="font-size:11px;font-weight:800;color:{MUTED};letter-spacing:.08em;text-transform:uppercase">Step 1 · Total consumption</div>
+              <div style="font-size:22px;font-weight:800;color:{NAVY};margin:4px 0 14px">{total:,.2f} kWh</div>
+              <div style="font-size:11px;font-weight:800;color:{MUTED};letter-spacing:.08em;text-transform:uppercase">Step 2 · Total billed days</div>
+              <div style="font-size:22px;font-weight:800;color:{NAVY};margin:4px 0 14px">{days:,} days</div>
+              <div style="font-size:11px;font-weight:800;color:{MUTED};letter-spacing:.08em;text-transform:uppercase">Step 3 · Calculate daily average</div>
+              <div style="font-size:16px;color:{TEXT};margin:4px 0 14px">{total:,.2f} ÷ {days:,} = {total/days:,.4f} kWh/day</div>
+              <div style="font-size:11px;font-weight:800;color:{MUTED};letter-spacing:.08em;text-transform:uppercase">Step 4 · Annualise</div>
+              <div style="font-size:18px;font-weight:800;color:#126B55;margin:4px 0 14px">{total:,.2f} ÷ {days:,} × 365 = {annual:,.2f} kWh/year</div>
+              <div style="font-size:11px;font-weight:800;color:{MUTED};letter-spacing:.08em;text-transform:uppercase">Step 5 · Average monthly usage</div>
+              <div style="font-size:18px;font-weight:800;color:#126B55;margin-top:4px">{annual:,.2f} ÷ 12 = {monthly:,.2f} kWh/month</div>
+            </div>
+            """,unsafe_allow_html=True)
+    else:
+        st.warning("Annualisation not calculated because billed days or consumption need review.")
     # Check date overlaps for same supply to prevent silent double counting.
     dates=[]
     for x in items:
