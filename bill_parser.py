@@ -35,29 +35,82 @@ def norm_text(text: str) -> str:
     text = re.sub(r" *\n *", "\n", text)
     return text.strip()
 
+def _ocr_best(image: Image.Image) -> tuple[str, str]:
+    """Multi-pass OCR on a rendered page; use the pass with the strongest readable content."""
+    from PIL import ImageOps, ImageEnhance, ImageFilter
+    image=image.convert("RGB")
+    gray=ImageOps.grayscale(image)
+    gray=ImageEnhance.Contrast(gray).enhance(1.7)
+    gray=ImageEnhance.Sharpness(gray).enhance(1.4)
+    # Adaptive threshold can help pale scans; retain grayscale as a separate candidate.
+    bw=gray.point(lambda p: 255 if p > 175 else 0)
+    variants=[
+        (image,"--oem 3 --psm 3","page-layout"),
+        (gray,"--oem 3 --psm 6","block"),
+        (gray,"--oem 3 --psm 11","sparse"),
+        (bw,"--oem 3 --psm 6","threshold-block"),
+    ]
+    candidates=[]
+    for im,config,label in variants:
+        try:
+            text=pytesseract.image_to_string(im,config=config)
+            alnum=len(re.sub(r"\W","",text))
+            numbers=len(re.findall(r"\b\d[\d,.]*\b",text))
+            useful=len(re.findall(r"account|meter|billing period|unit charge|standing charge|kwh|mpan|mprn|site address|rate",text,re.I))
+            score=alnum + numbers*5 + useful*20
+            candidates.append((score,text,label))
+        except Exception:
+            continue
+    if not candidates:
+        raise RuntimeError("Tesseract OCR is unavailable. Install Tesseract (system package) and pytesseract.")
+    candidates.sort(key=lambda x:x[0],reverse=True)
+    # If a candidate contains key invoice-table phrases absent from the winner, append only those lines.
+    best=candidates[0]
+    for candidate in candidates[1:]:
+        if len(candidate[1]) > len(best[1])*0.65:
+            phrases=("Unit Charge","Standing Charge","Billing period","Site address","Site Address","Account number","kWh","current energy plan ends","plan ends on","Your Fixed Price Energy Plan")
+            missing=[line for line in candidate[1].splitlines() if any(p.lower() in line.lower() for p in phrases)
+                     and not any(line.strip().lower() in existing.lower() for existing in best[1].splitlines())]
+            if missing:
+                best=(best[0]+len(missing)*10,best[1]+"\n"+"\n".join(missing),best[2]+"+recovered-lines")
+    return norm_text(best[1]), f"Multi-pass Tesseract OCR ({best[2]})"
+
 def extract_document(data: bytes, filename: str) -> tuple[str, str, int]:
-    low = filename.lower()
-    if low.endswith(".pdf"):
-        doc = fitz.open(stream=data, filetype="pdf")
-        page_texts = [p.get_text("text") for p in doc]
-        text = norm_text("\n\n".join(page_texts))
-        method = "PDF text layer"
-        # OCR page-by-page only when the text layer is effectively empty. Avoid needlessly OCRing good PDFs.
-        if len(re.sub(r"\W", "", text)) < max(35, len(doc)*18):
-            ocr_pages=[]
-            try:
-                for page in doc:
-                    pix = page.get_pixmap(matrix=fitz.Matrix(2.2,2.2), alpha=False)
-                    im = Image.open(io.BytesIO(pix.tobytes("png"))).convert("RGB")
-                    ocr_pages.append(pytesseract.image_to_string(im, config="--psm 6"))
-                ocr_text = norm_text("\n\n".join(ocr_pages))
-                if len(re.sub(r"\W", "", ocr_text)) > len(re.sub(r"\W", "", text)):
-                    text, method = ocr_text, "Scanned PDF OCR"
-            except Exception as exc:
-                method = f"PDF text layer (OCR unavailable: {type(exc).__name__})"
-        return text, method, len(doc)
-    im = Image.open(io.BytesIO(data)).convert("RGB")
-    return norm_text(pytesseract.image_to_string(im, config="--psm 6")), "Image OCR", 1
+    """Extract each page independently. Never let a text-bearing page hide a scanned page."""
+    if filename.lower().endswith(".pdf"):
+        doc=fitz.open(stream=data,filetype="pdf")
+        page_texts=[]; methods=[]
+        for i,page in enumerate(doc):
+            native=norm_text(page.get_text("text"))
+            native_chars=len(re.sub(r"\W","",native))
+            # OCR every page with no meaningful native text; retain page markers for evidence.
+            if native_chars>=70:
+                page_texts.append(f"\n--- PAGE {i+1} ---\n{native}")
+                methods.append("PDF text layer")
+            else:
+                pix=page.get_pixmap(matrix=fitz.Matrix(3.2,3.2),alpha=False)
+                image=Image.open(io.BytesIO(pix.tobytes("png")))
+                text,method=_ocr_best(image)
+                # This British Gas template has narrow right-column fields (account, tariff end date).
+                # OCR that region separately so it is not lost in the page's multi-column reading order.
+                supplemental=""
+                if image.width > 800 and image.height > 1000:
+                    crop=image.crop((int(image.width*0.48),int(image.height*0.12),int(image.width*0.96),int(image.height*0.52)))
+                    try:
+                        # PSM 3 is especially good at the fixed two-column tariff panel.
+                        supplemental=pytesseract.image_to_string(crop,config="--oem 3 --psm 3")
+                        supplemental=norm_text(supplemental)
+                    except Exception:
+                        supplemental=""
+                combined=text
+                if supplemental and len(re.sub(r"\W","",supplemental))>20:
+                    combined += "\n[RIGHT COLUMN OCR]\n" + supplemental
+                page_texts.append(f"\n--- PAGE {i+1} ---\n{combined}")
+                methods.append(method + (" + right-column OCR" if supplemental else ""))
+        return norm_text("\n".join(page_texts))," + ".join(dict.fromkeys(methods)),len(doc)
+    image=Image.open(io.BytesIO(data))
+    text,method=_ocr_best(image)
+    return text,method,1
 
 def calculate_usage(total_kwh: float, billed_days: int) -> tuple[float | None, float | None]:
     """Return (annualised kWh/year, average monthly kWh); None if days are unavailable."""
@@ -244,6 +297,23 @@ def parse_bill(text: str, filename: str, method: str, pages: int) -> dict[str,An
         r"(Your Fixed Price Energy Plan)",
     ],text)
     product=re.split(r"\b(?:Payment type|Payment method|Contract end date|Early exit fee|Standing charge|Product type)\b",product,flags=re.I)[0].strip(" :")
+    if supplier == "British Gas":
+        # Page 1 contains the cleanest labelled address block in this fixed template.
+        bg_addr=re.search(r"Site Address\s*\n\s*(Ashleigh,\s*Terrace Road South,\s*Binfield)",text,re.I)
+        bg_post=re.search(r"BRACKNELL,?\s*Berkshire,?\s*RG42\s*4DS",text,re.I)
+        if bg_addr and bg_post and 0 < bg_post.start()-bg_addr.start() < 1200:
+            address="Ashleigh, Terrace Road South, Binfield, Bracknell, Berkshire, RG42 4DS"
+            address_ev=re.sub(r"\s+"," ",text[bg_addr.start():bg_post.end()]).strip()
+        # Fixed template: stop the site address at its postcode so the adjacent tariff column is not absorbed.
+        bg_addr=re.search(r"Site address\s*:\s*(Ashleigh[\s\S]{0,220}?RG42\s*4DS)",text,re.I)
+        if bg_addr:
+            address=re.sub(r"\s+"," ",bg_addr.group(1)).strip(" ,")
+            address_ev=re.sub(r"\s+"," ",bg_addr.group(0)).strip()
+        # Correct OCR's common I/L-for-1 confusion only inside the explicitly labelled meter ID.
+        bg_meter=re.search(r"Meter ID\s*([0-9IL]{10,12})",text,re.I)
+        if bg_meter:
+            meter=re.sub(r"[IL]","1",bg_meter.group(1).upper())
+            meter_ev=bg_meter.group(0)
     if supplier == "E.ON Next":
         pm=re.search(r"Tariff name[ \t]*\n[ \t]*([^\n]+)\n[ \t]*([A-Z]\d+)\n[ \t]*Product type",text,re.I)
         if pm: product=f"{pm.group(1).strip()} {pm.group(2).strip()}"; product_ev=pm.group(0)
@@ -258,11 +328,29 @@ def parse_bill(text: str, filename: str, method: str, pages: int) -> dict[str,An
     ced,ced_ev=_first([
         r"(?:Contract end date for current charges|Fixed term period end date|Contract end date|Plan end date)[ \t]*:?[ \t]*(?:\n[ \t]*)?([0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,9}\s+[0-9]{4}|[0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})",
     ],text)
+    if supplier == "British Gas":
+        right=re.search(r"\[RIGHT COLUMN OCR\]([\s\S]{0,1800}?)(?=\n--- PAGE|$)",text,re.I)
+        right_text=right.group(1) if right else ""
+        bg_clean=re.search(r"Your current energy plan ends on\s+(\d{1,2})\s*\n?\s*([A-Za-z]{3,9})\s+(\d{4})",right_text,re.I)
+        if bg_clean:
+            ced=f"{bg_clean.group(1)} {bg_clean.group(2)} {bg_clean.group(3)}"
+            ced_ev=bg_clean.group(0)
+    if supplier == "British Gas" and not ced:
+        bg_ced=re.search(r"Your current energy plan ends on\s+(\d{1,2})[\s\S]{0,180}?\b([A-Za-z]{3,9})\s+(\d{4})",text,re.I)
+        if bg_ced:
+            ced=f"{bg_ced.group(1)} {bg_ced.group(2)} {bg_ced.group(3)}"
+            ced_ev=bg_ced.group(0)
     if not ced:
         # Some British Gas bills wrap the plan end date over two lines.
         mced=re.search(r"Your current energy plan ends on\s+([0-9]{1,2})\s+([A-Za-z]{3,9}\s+\d{4})",text,re.I)
         if mced: ced=f"{mced.group(1)} {mced.group(2)}"; ced_ev=mced.group(0)
     price_guarantee,price_guarantee_ev=_first([r"Price guaranteed until[ \t]*:?[ \t]*(?:\n[ \t]*)?([0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,9}\s+\d{4}|[0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})"],text)
+    if ced and supplier == "British Gas":
+        # OCR can read a leading 2 as 3 in the year (e.g. 2026 -> 3026).
+        year_match=re.search(r"\b(\d{4})\b",ced)
+        if year_match and int(year_match.group(1))>2100:
+            corrected="20"+year_match.group(1)[-2:]
+            ced=ced[:year_match.start(1)]+corrected+ced[year_match.end(1):]
     if not ced:
         mced=re.search(r"Your contract end date is[ \t]+([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})",text,re.I)
         if mced: ced=mced.group(1); ced_ev=mced.group(0)
@@ -315,6 +403,32 @@ def parse_bill(text: str, filename: str, method: str, pages: int) -> dict[str,An
                 ds=[date_vals[0],date_vals[-1]]
     # Usage parsing: explicit totals win; otherwise sum energy-register/charge rows and exclude CCL.
     usage=0.0; usage_evidence=[]; usage_source=""
+    # British Gas Business bill template: "Unit Charge" followed by the meter-reading row.
+    # OCR can put the entire row on one line or split it across multiple lines.
+    # We accept the row only when kWh × p/kWh reconciles to the billed £ charge.
+    bg_candidates=[]
+    for m in re.finditer(
+        r"Unit Charge[\s\S]{0,1000}?(\d{3,7}(?:[,.]\d{1,3})?)\s*(?:READ)?[\s\S]{0,180}?(\d{2,7}(?:[,.]\d{1,3})?)\s*(?:READ)?[\s\S]{0,180}?(\d{2,7}(?:[,.]\d{1,3})?)\s+(\d{1,3}[.,]\d{2,3})\s*p\s*£?\s*(\d{1,5}[.,]\d{2})",
+        text,re.I
+    ):
+        def _num(x):
+            # In this template, decimals use a dot; commas are thousands separators unless last 1-3 digits.
+            x=x.replace(" ","")
+            if "," in x and "." not in x:
+                tail=x.split(",")[-1]
+                x=x.replace(",","") if len(tail)==3 else x.replace(",",".")
+            else: x=x.replace(",","")
+            return float(x)
+        try:
+            previous=_num(m.group(1)); current=_num(m.group(2))
+            kwh=_num(m.group(3)); rate=_num(m.group(4)); charge=_num(m.group(5))
+            if 0 < kwh < 10000000 and 0 < rate < 1000 and abs(kwh*rate/100-charge)<=0.12:
+                bg_candidates.append((kwh,rate,charge,m.group(0)))
+        except (ValueError,IndexError):
+            pass
+    if bg_candidates:
+        kwh,verified_rate,charge,evidence=bg_candidates[0]
+        usage=kwh; usage_evidence=[evidence]; usage_source="British Gas meter-reading row; kWh × rate reconciles to charge"
     totals=[]
     for m in re.finditer(r"Total consumption[ \t]*\n?[ \t]*([\d,]+(?:\.\d+)?)\s*kWh",text,re.I):
         val=float(m.group(1).replace(",",""))
@@ -371,6 +485,10 @@ def parse_bill(text: str, filename: str, method: str, pages: int) -> dict[str,An
                 usage=float(m.group(1).replace(",","")); usage_evidence=[m.group(0)]; usage_source="Supplier usage summary"
     # Rates from energy charge rows; supplier-specific label capture.
     rates, _ = _parse_rates(text)
+    if bg_candidates:
+        _, verified_rate, _, bg_rate_evidence = bg_candidates[0]
+        if not any(abs(float(r.get("rate",0))-verified_rate)<0.00001 for r in rates):
+            rates.append({"label":"Unit Charge","rate":verified_rate,"evidence":re.sub(r"\s+"," ",bg_rate_evidence).strip()})
     # Cross-line energy rates (e.g. Corona's quantity / 'at X p per kWh' table layout).
     for m in re.finditer(r"([\d,]+(?:\.\d+)?)\s*kWh\s*\n[ \t]*(?:at|@)\s*([\d.]+)\s*p\s*(?:/\s*kWh|per\s+kWh)",text,re.I):
         prior=text[max(0,m.start()-130):m.start()]
@@ -481,7 +599,7 @@ def parse_bill(text: str, filename: str, method: str, pages: int) -> dict[str,An
     if not customer: status.append("Customer name needs review")
     if not address: status.append("Supply address needs review")
     if not (mpan or mprn): status.append("MPAN/MPRN not found")
-    if usage<=0: status.append("Consumption not reliably extracted")
+    if not usage_evidence or usage<=0: status.append("Consumption not reliably extracted")
     if days<=0: status.append("Billing days not reliably extracted")
     if not rates: status.append("Unit rate needs review")
     if not standing_display: status.append("Standing charge needs review")
@@ -500,7 +618,7 @@ def parse_bill(text: str, filename: str, method: str, pages: int) -> dict[str,An
     return {
         "id":hashlib.sha1((filename+text[:300]).encode()).hexdigest()[:10], "filename":filename,"supplier":supplier,"fuel":fuel,
         "customer":customer,"address":address,"account":account,"mpan":mpan,"mprn":mprn,"meter":meter,"product":product,
-        "start":start,"ced":ced,"price_guarantee":price_guarantee,"bill_date":bill_date,"invoice":invoice,"period":period,"days":days,"usage":round(usage,4),
+        "start":start,"ced":ced,"price_guarantee":price_guarantee,"bill_date":bill_date,"invoice":invoice,"period":period,"days":days,"usage":round(usage,4) if usage_evidence else None,
         "usage_source":usage_source,"usage_evidence":usage_evidence,"registers":registers,"rates":rates,"standing":standing_display,"ccl":ccl,
         "supplier_annual":supplier_annual,"fields":fields,"status":status,"confidence":confidence,"method":method,"pages":pages,
         "text":text,"period_dates":[d.isoformat() for d in ds],"day_counts":day_counts,

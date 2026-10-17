@@ -136,7 +136,7 @@ def make_report(records, consumption_df, detail_values, generated_at):
     story += [Spacer(1,5*mm),P("Review notes","OAHead")]
     for r in records:
         row=consumption_df[consumption_df["_id"]==r["id"]]
-        row_usage=sum(float(row.iloc[0].get(c,0) or 0) for c in ["Day kWh","Night kWh","EW kWh","Other register kWh","Single-rate kWh"]) if not row.empty else r.get("usage",0)
+        row_usage=sum(float(row.iloc[0].get(c) or 0) for c in ["Day kWh","Night kWh","EW kWh","Other register kWh","Single-rate kWh"] if row.iloc[0].get(c) is not None and not pd.isna(row.iloc[0].get(c))) if not row.empty else r.get("usage")
         row_days=int(row.iloc[0].get("Days",0) or 0) if not row.empty else r.get("days",0)
         flags=current_review_flags(r,detail_values[r['id']],row_usage,row_days)
         if flags: story.append(P(f"<b>{esc(r['filename'])}:</b> {esc('; '.join(flags))}","OABody"))
@@ -253,7 +253,7 @@ st.markdown('<div class="oa-divider"></div><div class="oa-section">04 · Consump
 initial_rows=[]
 for r in records:
     regs=r.get("registers",[]) or []
-    row={"_id":r['id'],"Bill":r['filename'],"Billing period":r.get("period", ""),"Days":int(r.get("days",0) or 0),"Day kWh":0.0,"Night kWh":0.0,"EW kWh":0.0,"Other register kWh":0.0,"Single-rate kWh":0.0}
+    row={"_id":r['id'],"Bill":r['filename'],"Billing period":r.get("period", ""),"Days":int(r.get("days",0) or 0),"Day kWh":0.0,"Night kWh":0.0,"EW kWh":0.0,"Other register kWh":0.0,"Single-rate kWh":None}
     if regs:
         for reg in regs:
             lab=reg.get("label","").lower(); val=float(reg.get("kwh",0) or 0)
@@ -263,7 +263,7 @@ for r in records:
             elif "anytime" in lab: row["Single-rate kWh"]+=val
             else: row["Other register kWh"]+=val
     else:
-        row["Single-rate kWh"]=float(r.get("usage",0) or 0)
+        row["Single-rate kWh"]=float(r["usage"]) if r.get("usage") is not None else None
     initial_rows.append(row)
 cons_key="oa_consumption_"+hashlib.sha1("|".join(r['id'] for r in records).encode()).hexdigest()[:10]
 cons_df=pd.DataFrame(initial_rows)
@@ -276,7 +276,12 @@ cons_df=st.data_editor(cons_df,key=cons_key,use_container_width=True,hide_index=
     "Single-rate kWh":st.column_config.NumberColumn("Single-rate kWh",min_value=0.0,format="%.2f")})
 
 # Calculation by supply. Distinct supply points are not combined into one annualised figure.
-def total_row(row): return sum(max(0,float(row.get(c,0) or 0)) for c in ["Day kWh","Night kWh","EW kWh","Other register kWh","Single-rate kWh"])
+def total_row(row):
+    vals=[row.get(c) for c in ["Day kWh","Night kWh","EW kWh","Other register kWh","Single-rate kWh"]]
+    # A row with no extracted or manually entered consumption must remain unknown, not zero.
+    present=[float(v) for v in vals if v is not None and not pd.isna(v)]
+    if not present or all(v==0 for v in present): return None
+    return sum(max(0,v) for v in present)
 rows=[]
 for _,row in cons_df.iterrows():
     r=next((x for x in records if x['id']==row['_id']),None)

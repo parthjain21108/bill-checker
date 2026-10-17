@@ -1,38 +1,26 @@
-# Operations Assistant — Streamlit Cloud
+# Operations Assistant — British Gas template edition
 
-A review-first UK commercial energy-bill extraction and reporting app. Upload bills, inspect extracted fields, edit corrections, review consumption by register, calculate annualised usage, and export a PDF report.
+This version is deliberately tuned for the four-page British Gas Business electricity bill format supplied for development. It is not marketed as a universal energy-bill parser.
+
+## Features
+- Multiple PDF uploads in one run; each file is parsed independently.
+- Per-page text-layer detection and OCR for scanned pages.
+- Multi-pass Tesseract OCR plus a focused right-column OCR pass for the tariff panel.
+- Template-specific extraction of customer, site address, account number, meter ID, billing period, meter-reading usage, unit rate, standing charge and contract end date where legible.
+- Cross-check of usage × unit rate against the billed energy charge.
+- Missing consumption stays unknown rather than silently becoming zero.
+- Editable fields, consumption review and PDF report export.
 
 ## Deploy to Streamlit Community Cloud
-1. Create a GitHub repository and upload the contents of this folder (including `.streamlit/config.toml` and `packages.txt`).
-2. Open https://share.streamlit.io/ and connect the repository.
-3. Set the main file path to `app.py` and deploy.
-4. Wait for the first build to install Python packages and Tesseract OCR from `packages.txt`.
+1. Upload the contents of this folder to your GitHub repository.
+2. Ensure `packages.txt` and `.streamlit/config.toml` are included.
+3. In Streamlit Community Cloud, select `app.py` as the entry point and deploy.
+4. Test using copies of the supplied bill format and compare every extracted value with the source invoice.
 
-## What it does
-- Extracts PDF text with PyMuPDF and falls back to Tesseract OCR for scanned/image PDFs.
-- Uses deterministic, supplier-aware parsing and shows source text/evidence for review.
-- Keeps Day, Night, Evening & Weekend, other registers, and single-rate usage separate.
-- Calculates annualised usage as `total consumption ÷ total billed days × 365` and average monthly usage as annualised usage ÷ 12.
-- Produces a formatted PDF report with supply details, consumption, calculations and review flags.
-- Missing values are flagged rather than silently replaced with guessed values.
+## Important
+This app uses OCR and deterministic parsing, not a trained machine-learning model. It is tuned to the supplied British Gas layout, but changes to the invoice template, poor scans, or OCR errors may still require review. Verify output before using it operationally.
 
-## Important limitations
-- This is not a certified billing system and cannot guarantee 100% extraction accuracy. Supplier layouts differ and PDFs may have OCR/layout issues. Always verify critical values against the source invoice.
-- It does not call ChatGPT or an external AI API. Parsing is rules-based; unsupported layouts may require manual correction.
-- Streamlit Community Cloud processes uploaded files in the hosted app environment. A private GitHub repository does **not** make the deployed app private. Do not upload confidential client bills unless your organisation has explicitly approved cloud processing.
-- Uploaded files are handled in the running app session. Do not treat this as a compliant records-management system.
+The app runs on Streamlit Cloud when deployed there. Uploaded documents and extracted text are processed by the hosting environment; only upload client bills if your organisation has approved that processing.
 
-## Local run
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
-pip install -r requirements.txt
-streamlit run app.py
-```
-For OCR locally, install Tesseract OCR using your operating system's package manager.
-
-## Parser regression tests
-Run the included sanitised tests with:
-```bash
-python -m unittest discover -s tests -v
-```
+## Requirements
+Python dependencies are listed in `requirements.txt`. `packages.txt` installs the Tesseract OCR system package on Streamlit Community Cloud.
