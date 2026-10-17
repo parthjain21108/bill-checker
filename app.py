@@ -71,19 +71,15 @@ html, body, [class*="css"] {{ font-family:'DM Sans',sans-serif; color:var(--oa-t
 small, .stCaption {{ color:{MUTED}; }}
 footer {{ visibility:hidden; }}
 /* Make the hero heading white */
+/* Operations Assistant heading */
 .oa-hero h1 {
     color: #FFFFFF !important;
 }
 
-/* Make the upload section text white */
+/* Upload section heading and description */
+.stApp h2,
 .stApp [data-testid="stFileUploader"] label,
-.stApp [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"],
-.stApp [data-testid="stFileUploader"] [data-testid="stMarkdownContainer"],
-.stApp [data-testid="stFileUploader"] button {
-    color: #FFFFFF !important;
-}
-.stApp .oa-section:first-of-type,
-.stApp .oa-sub {
+.stApp [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"] {
     color: #FFFFFF !important;
 }
 </style>
