@@ -63,6 +63,8 @@ html, body, [class*="css"] {{ font-family:'DM Sans',sans-serif; color:var(--oa-t
 .stApp [data-testid="stTabs"] button[aria-selected="true"] {{ color:{BLUE} !important; border-bottom-color:{BLUE} !important; }}
 .stApp [data-testid="stDataFrame"], .stApp [data-testid="stDataEditor"] {{ background:white; border-radius:12px; }}
 .oa-hero {{ box-shadow:0 12px 28px #14243A12; }}
+.oa-hero h1, .oa-hero p, .oa-hero .oa-kicker, .oa-hero .oa-pill {{ color:#FFFFFF !important; }}
+.oa-hero .oa-kicker {{ color:#AFC6FF !important; }}
 .oa-section {{ margin-top:20px; }}
 
 [data-testid="stExpander"] {{ border:1px solid {LINE};border-radius:12px;background:white; }}
@@ -97,18 +99,18 @@ def current_review_flags(record, details, usage=None, days=None):
 def make_report(records, consumption_df, detail_values, generated_at):
     """Clean, readable portrait report with explicit calculation steps and highlighted results."""
     buff=io.BytesIO()
-    doc=SimpleDocTemplate(buff,pagesize=A4,rightMargin=16*mm,leftMargin=16*mm,topMargin=15*mm,bottomMargin=16*mm)
+    doc=SimpleDocTemplate(buff,pagesize=A4,rightMargin=11*mm,leftMargin=11*mm,topMargin=8*mm,bottomMargin=12*mm)
     ss=getSampleStyleSheet()
     ss.add(ParagraphStyle(name="OAeyebrow2",parent=ss["Normal"],fontName="Helvetica-Bold",fontSize=8,leading=10,textColor=colors.HexColor(BLUE),spaceAfter=7))
-    ss.add(ParagraphStyle(name="OATitle2",parent=ss["Title"],fontName="Helvetica-Bold",fontSize=25,leading=29,textColor=colors.HexColor(NAVY),alignment=TA_LEFT,spaceAfter=5))
-    ss.add(ParagraphStyle(name="OASub2",parent=ss["Normal"],fontName="Helvetica",fontSize=9,leading=13,textColor=colors.HexColor(MUTED),spaceAfter=12))
-    ss.add(ParagraphStyle(name="OAHead2",parent=ss["Heading2"],fontName="Helvetica-Bold",fontSize=13,leading=16,textColor=colors.HexColor(NAVY),spaceBefore=15,spaceAfter=7))
-    ss.add(ParagraphStyle(name="OABody2",parent=ss["BodyText"],fontName="Helvetica",fontSize=8.5,leading=12,textColor=colors.HexColor(TEXT)))
-    ss.add(ParagraphStyle(name="OATiny2",parent=ss["BodyText"],fontName="Helvetica",fontSize=7,leading=9,textColor=colors.HexColor(MUTED)))
+    ss.add(ParagraphStyle(name="OATitle2",parent=ss["Title"],fontName="Helvetica-Bold",fontSize=21,leading=23,textColor=colors.HexColor(NAVY),alignment=TA_LEFT,spaceAfter=3))
+    ss.add(ParagraphStyle(name="OASub2",parent=ss["Normal"],fontName="Helvetica",fontSize=6,leading=7,textColor=colors.HexColor(MUTED),spaceAfter=5))
+    ss.add(ParagraphStyle(name="OAHead2",parent=ss["Heading2"],fontName="Helvetica-Bold",fontSize=10,leading=12,textColor=colors.HexColor(NAVY),spaceBefore=6,spaceAfter=3))
+    ss.add(ParagraphStyle(name="OABody2",parent=ss["BodyText"],fontName="Helvetica",fontSize=7,leading=8.5,textColor=colors.HexColor(TEXT)))
+    ss.add(ParagraphStyle(name="OATiny2",parent=ss["BodyText"],fontName="Helvetica",fontSize=6,leading=7,textColor=colors.HexColor(MUTED)))
     ss.add(ParagraphStyle(name="OAHeadCell2",parent=ss["BodyText"],fontName="Helvetica-Bold",fontSize=8,leading=10,textColor=colors.white))
-    ss.add(ParagraphStyle(name="OAMetric2",parent=ss["BodyText"],fontName="Helvetica-Bold",fontSize=18,leading=21,textColor=colors.HexColor(NAVY),alignment=TA_LEFT))
-    ss.add(ParagraphStyle(name="OAMetricLabel2",parent=ss["BodyText"],fontName="Helvetica-Bold",fontSize=7.5,leading=9,textColor=colors.HexColor(MUTED),alignment=TA_LEFT))
-    ss.add(ParagraphStyle(name="OAStep2",parent=ss["BodyText"],fontName="Helvetica",fontSize=9,leading=13,textColor=colors.HexColor(TEXT)))
+    ss.add(ParagraphStyle(name="OAMetric2",parent=ss["BodyText"],fontName="Helvetica-Bold",fontSize=12,leading=14,textColor=colors.HexColor(NAVY),alignment=TA_LEFT))
+    ss.add(ParagraphStyle(name="OAMetricLabel2",parent=ss["BodyText"],fontName="Helvetica-Bold",fontSize=6,leading=7,textColor=colors.HexColor(MUTED),alignment=TA_LEFT))
+    ss.add(ParagraphStyle(name="OAStep2",parent=ss["BodyText"],fontName="Helvetica",fontSize=7,leading=8.5,textColor=colors.HexColor(TEXT)))
     P=lambda v,sty="OABody2":Paragraph(str(v),ss[sty])
     story=[P("OPERATIONS ASSISTANT  /  COMMERCIAL ENERGY BILL REVIEW","OAeyebrow2"),
            P("Energy Bill Analysis","OATitle2"),
@@ -136,7 +138,7 @@ def make_report(records, consumption_df, detail_values, generated_at):
         [P("ANNUALISED ESTIMATE","OAMetricLabel2"),P(f"{annual:,.2f} kWh/year" if annual is not None else "—","OAMetric2")],
     ]
     mt=Table([metrics],colWidths=[44*mm]*4)
-    mt.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),colors.HexColor("#F2F5FB")),("BOX",(0,0),(-1,-1),.6,colors.HexColor(LINE)),("INNERGRID",(0,0),(-1,-1),.5,colors.HexColor(LINE)),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),9),("RIGHTPADDING",(0,0),(-1,-1),6),("TOPPADDING",(0,0),(-1,-1),10),("BOTTOMPADDING",(0,0),(-1,-1),10)]))
+    mt.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),colors.HexColor("#F2F5FB")),("BOX",(0,0),(-1,-1),.6,colors.HexColor(LINE)),("INNERGRID",(0,0),(-1,-1),.5,colors.HexColor(LINE)),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),9),("RIGHTPADDING",(0,0),(-1,-1),6),("TOPPADDING",(0,0),(-1,-1),4),("BOTTOMPADDING",(0,0),(-1,-1),4)]))
     story.append(mt)
     story.append(P("Supply details","OAHead2"))
     detail_rows=[[P("FIELD","OAHeadCell2"),P("EXTRACTED VALUE","OAHeadCell2")]]
@@ -151,7 +153,7 @@ def make_report(records, consumption_df, detail_values, generated_at):
             [P("Rates and charges"),P(f"Unit rate: {esc(d.get('Unit rates (p/kWh)',''))} p/kWh<br/>Standing charge: {esc(d.get('Standing charge (p/day)',''))} p/day<br/>CCL: {esc(d.get('CCL rate (p/kWh)',''))} p/kWh")],
         ]
     dt=Table(detail_rows,colWidths=[54*mm,122*mm],repeatRows=1,hAlign="LEFT")
-    dt.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor(NAVY)),("BACKGROUND",(0,1),(0,-1),colors.HexColor("#F2F5FB")),("GRID",(0,0),(-1,-1),.45,colors.HexColor(LINE)),("VALIGN",(0,0),(-1,-1),"TOP"),("LEFTPADDING",(0,0),(-1,-1),8),("RIGHTPADDING",(0,0),(-1,-1),8),("TOPPADDING",(0,0),(-1,-1),6),("BOTTOMPADDING",(0,0),(-1,-1),6)]))
+    dt.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor(NAVY)),("BACKGROUND",(0,1),(0,-1),colors.HexColor("#F2F5FB")),("GRID",(0,0),(-1,-1),.45,colors.HexColor(LINE)),("VALIGN",(0,0),(-1,-1),"TOP"),("LEFTPADDING",(0,0),(-1,-1),8),("RIGHTPADDING",(0,0),(-1,-1),8),("TOPPADDING",(0,0),(-1,-1),3),("BOTTOMPADDING",(0,0),(-1,-1),3)]))
     story.append(dt)
     story.append(P("Consumption by bill","OAHead2"))
     cr=[[P("BILL / PERIOD","OAHeadCell2"),P("DAYS","OAHeadCell2"),P("DAY","OAHeadCell2"),P("NIGHT","OAHeadCell2"),P("E&W","OAHeadCell2"),P("OTHER","OAHeadCell2"),P("SINGLE RATE","OAHeadCell2"),P("TOTAL","OAHeadCell2")]]
@@ -162,7 +164,7 @@ def make_report(records, consumption_df, detail_values, generated_at):
         total=sum(float(row.get(c) or 0) for c in ["Day kWh","Night kWh","EW kWh","Other register kWh","Single-rate kWh"] if row.get(c) is not None and not pd.isna(row.get(c)))
         cr.append([P(f"{esc(row.get('Bill',''))}<br/><font color='#66758A'>{esc(row.get('Billing period',''))}</font>"),P(str(int(row.get("Days",0) or 0))),P(valfmt(row.get("Day kWh"))),P(valfmt(row.get("Night kWh"))),P(valfmt(row.get("EW kWh"))),P(valfmt(row.get("Other register kWh"))),P(valfmt(row.get("Single-rate kWh"))),P(f"<b>{total:,.2f}</b>")])
     ct=Table(cr,colWidths=[47*mm,13*mm,17*mm,17*mm,15*mm,17*mm,22*mm,19*mm],repeatRows=1,hAlign="LEFT")
-    ct.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor(BLUE)),("GRID",(0,0),(-1,-1),.45,colors.HexColor(LINE)),("BACKGROUND",(0,1),(-1,-1),colors.white),("VALIGN",(0,0),(-1,-1),"TOP"),("ALIGN",(1,1),(-1,-1),"RIGHT"),("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),5),("TOPPADDING",(0,0),(-1,-1),7),("BOTTOMPADDING",(0,0),(-1,-1),7)]))
+    ct.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor(BLUE)),("GRID",(0,0),(-1,-1),.45,colors.HexColor(LINE)),("BACKGROUND",(0,1),(-1,-1),colors.white),("VALIGN",(0,0),(-1,-1),"TOP"),("ALIGN",(1,1),(-1,-1),"RIGHT"),("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),5),("TOPPADDING",(0,0),(-1,-1),3),("BOTTOMPADDING",(0,0),(-1,-1),3)]))
     story.append(ct)
     story.append(P("Calculation — step by step","OAHead2"))
     story.append(P("Formula: Annualised consumption = Total consumption ÷ Total billed days × 365","OAStep2"))
@@ -178,23 +180,15 @@ def make_report(records, consumption_df, detail_values, generated_at):
             [P("5  Average monthly"),P(f"{ann:,.2f} ÷ 12 = {mon:,.2f} kWh/month" if ann is not None else "Not calculated")],
         ]
         st=Table(step_rows,colWidths=[54*mm,122*mm],hAlign="LEFT")
-        st.setStyle(TableStyle([("BACKGROUND",(0,0),(0,-1),colors.HexColor("#F2F5FB")),("BACKGROUND",(1,3),(1,4),colors.HexColor("#EAF7F2")),("TEXTCOLOR",(1,3),(1,4),colors.HexColor("#126B55")),("BOX",(0,0),(-1,-1),.6,colors.HexColor(LINE)),("INNERGRID",(0,0),(-1,-1),.4,colors.HexColor(LINE)),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),8),("RIGHTPADDING",(0,0),(-1,-1),8),("TOPPADDING",(0,0),(-1,-1),7),("BOTTOMPADDING",(0,0),(-1,-1),7)]))
+        st.setStyle(TableStyle([("BACKGROUND",(0,0),(0,-1),colors.HexColor("#F2F5FB")),("BACKGROUND",(1,3),(1,4),colors.HexColor("#EAF7F2")),("TEXTCOLOR",(1,3),(1,4),colors.HexColor("#126B55")),("BOX",(0,0),(-1,-1),.6,colors.HexColor(LINE)),("INNERGRID",(0,0),(-1,-1),.4,colors.HexColor(LINE)),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),8),("RIGHTPADDING",(0,0),(-1,-1),8),("TOPPADDING",(0,0),(-1,-1),3),("BOTTOMPADDING",(0,0),(-1,-1),3)]))
         story.append(P(f"Supply: {esc(key)}","OABody2")); story.append(st)
-        story.append(Spacer(1,3*mm))
-    story.append(P("Review notes","OAHead2"))
-    for r in records:
-        row=consumption_df[consumption_df["_id"]==r["id"]]
-        row_usage=sum(float(row.iloc[0].get(c) or 0) for c in ["Day kWh","Night kWh","EW kWh","Other register kWh","Single-rate kWh"] if row.iloc[0].get(c) is not None and not pd.isna(row.iloc[0].get(c))) if not row.empty else r.get("usage")
-        row_days=int(row.iloc[0].get("Days",0) or 0) if not row.empty else r.get("days",0)
-        flags=current_review_flags(r,detail_values[r["id"]],row_usage,row_days)
-        story.append(P(f"<b>{esc(r['filename'])}</b> — {esc('; '.join(flags) if flags else 'Core fields extracted; verify against the source invoice.')}","OABody2"))
-    story += [Spacer(1,4*mm),P("Empty fields mean the value was not reliably identified. Do not treat missing values as zero. Confirm identifiers, rates, billed days and consumption against the original invoice before operational use.","OATiny2")]
+        story.append(Spacer(1,1*mm))
     def footer(canvas,doc_):
         canvas.saveState(); w,h=A4
-        canvas.setStrokeColor(colors.HexColor(LINE)); canvas.line(16*mm,11*mm,w-16*mm,11*mm)
+        canvas.setStrokeColor(colors.HexColor(LINE)); canvas.line(11*mm,8*mm,w-11*mm,8*mm)
         canvas.setFont("Helvetica",7); canvas.setFillColor(colors.HexColor(MUTED))
-        canvas.drawString(16*mm,6*mm,"OPERATIONS ASSISTANT  ·  ENERGY BILL REVIEW")
-        canvas.drawRightString(w-16*mm,6*mm,f"PAGE {doc_.page}")
+        canvas.drawString(11*mm,4*mm,"OPERATIONS ASSISTANT  ·  ENERGY BILL REVIEW")
+        canvas.drawRightString(w-11*mm,4*mm,f"PAGE {doc_.page}")
         canvas.restoreState()
     doc.build(story,onFirstPage=footer,onLaterPages=footer)
     return buff.getvalue()
@@ -208,9 +202,6 @@ with st.sidebar:
     st.markdown(f'<div class="oa-brand"><div class="oa-mark">OA</div><div><div class="oa-brand-title">Operations Assistant</div><div class="oa-brand-sub">Energy bill review</div></div></div>',unsafe_allow_html=True)
     st.markdown("### Workflow")
     st.markdown("**01**  Upload documents\n\n**02**  Review extracted details\n\n**03**  Confirm consumption\n\n**04**  Export the report")
-    st.markdown("---")
-    st.markdown("### Important")
-    st.caption("This deployment runs on Streamlit Community Cloud. Uploaded bills and extracted text are processed by the hosted app. Use anonymised/test files unless cloud processing has been approved by your organisation.")
     st.markdown("---")
     st.caption("No external AI API is called. Extraction uses PDF text/OCR plus supplier-aware parsing; always verify the source bill.")
 
