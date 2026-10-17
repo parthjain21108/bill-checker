@@ -70,37 +70,30 @@ html, body, [class*="css"] {{ font-family:'DM Sans',sans-serif; color:var(--oa-t
 [data-testid="stExpander"] {{ border:1px solid {LINE};border-radius:12px;background:white; }}
 small, .stCaption {{ color:{MUTED}; }}
 footer {{ visibility:hidden; }}
-/* HERO: force the title to white */
-.oa-hero h1[data-testid],
+/* HERO: make the title white */
 .oa-hero h1,
-.oa-hero h1 span {
+.oa-hero h1 span {{
     color: #FFFFFF !important;
     -webkit-text-fill-color: #FFFFFF !important;
-}
+}}
 
-/* UPLOAD SECTION: keep heading and description dark on the light background */
-.oa-section,
-.oa-sub {
-    color: #14243A !important;
-    -webkit-text-fill-color: #14243A !important;
-}
-
-/* UPLOAD WIDGET: readable dark text on a white background */
-.stApp [data-testid="stFileUploader"] {
+/* UPLOAD WIDGET: readable dark text on the light background */
+.stApp [data-testid="stFileUploader"] {{
     background: #FFFFFF !important;
     color: #14243A !important;
-}
+}}
 
-.stApp [data-testid="stFileUploader"] *,
-.stApp [data-testid="stFileUploader"] button {
+.stApp [data-testid="stFileUploader"] label,
+.stApp [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"],
+.stApp [data-testid="stFileUploader"] button {{
     color: #14243A !important;
     -webkit-text-fill-color: #14243A !important;
-}
+}}
 
-.stApp [data-testid="stFileUploader"] button {
+.stApp [data-testid="stFileUploader"] button {{
     background: #FFFFFF !important;
     border: 1px solid #CBD5E1 !important;
-}
+}}
 </style>
 """, unsafe_allow_html=True)
 
