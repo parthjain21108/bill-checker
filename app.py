@@ -70,6 +70,22 @@ html, body, [class*="css"] {{ font-family:'DM Sans',sans-serif; color:var(--oa-t
 [data-testid="stExpander"] {{ border:1px solid {LINE};border-radius:12px;background:white; }}
 small, .stCaption {{ color:{MUTED}; }}
 footer {{ visibility:hidden; }}
+/* Make the hero heading white */
+.oa-hero h1 {
+    color: #FFFFFF !important;
+}
+
+/* Make the upload section text white */
+.stApp [data-testid="stFileUploader"] label,
+.stApp [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"],
+.stApp [data-testid="stFileUploader"] [data-testid="stMarkdownContainer"],
+.stApp [data-testid="stFileUploader"] button {
+    color: #FFFFFF !important;
+}
+.stApp .oa-section:first-of-type,
+.stApp .oa-sub {
+    color: #FFFFFF !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
